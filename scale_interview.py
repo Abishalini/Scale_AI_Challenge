@@ -7,21 +7,23 @@ import scaleapi
 import json 
 import csv
 import cv2
+import math
 import numpy as np
 import urllib.request
 from PIL import Image
-#from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans
 from collections import Counter
 
 OUTPUT_FILE_PATH = 'result.csv'
 
 COLOR_DICT = {"white": {255, 255, 255},
-              "red" : {255, 0, 0},
+              "red" : {204, 2, 2},       # stop sign color
               "orange" : {255, 150, 0},
               "yellow": {255, 235, 0},
-              "green": {0, 200, 0},
+              "green": {48, 132, 70},   # Medium dark shade of green for street signs
               "blue": {67, 133, 255},
-              "grey": {128, 128, 128}
+              "grey": {128, 128, 128},
+              "black": {0, 0, 0}
 }
 
 
@@ -46,6 +48,8 @@ def check_boundingbox_area(task_id, annotation_uuid, task_image_area, annotation
     elif bounding_box_percentage > 0.25:
         status = "WARN"
         description = "Bounding box may be big to be correct."
+    
+    ## Maybe create warning for too small signs as well
 
     return status, description
 
@@ -53,23 +57,37 @@ def check_background_color(task_id, annotation_uuid, task_image, annotation_widt
     # Find dominant color inside bounding box (You can use KMeans or try finding the most commonly ocurring color)
     print(task_id, annotation_uuid)
     
-    image = task_image[annotation_top: annotation_top + annotation_height][annotation_left:annotation_left + annotation_width][:]
-    w, h = image.size
-    pixels = image.getcolors(w*h)
-
-    most_frequent_pixel = pixels[0]
-
-    for count, color in pixels:
-        if count > most_frequent_pixels[0]:
-            most_frequent_pixel = (count, color)
+    image = task_image[annotation_top: (annotation_top + annotation_height), annotation_left:(annotation_left + annotation_width), :]
+    #print(annotation_left, annotation_top, annotation_height, annotation_width)
+    #print(image.shape)
     
+    image = image.reshape((image.shape[0]*image.shape[1], 3))
+    clt = KMeans(n_clusters=2)
+    labels = clt.fit_predict(image)
+
+    label_counts = Counter(labels) # count labels to find most popular
+    dominant_color = clt.cluster_centers_[label_counts.most_common(1)[0][0]]
+    dominant_color = list(dominant_color)
+    
+    min_rgb_distance = float('inf')
+    dominant_color_label = ""
     ## Find the closest label for the dominant color from COLOR_DICT (Use Euclidean distance)
+    for color, rgb_val in COLOR_DICT.items():
+        distance = math.sqrt(sum([(a - b) ** 2 for a, b in zip(dominant_color, rgb_val)]))
+        if distance < min_rgb_distance:
+            min_rgb_distance = distance
+            dominant_color_label = color
+    print(dominant_color_label)
 
     ## Check if annotation_bgcolor is equal to dominant color label (for color BLUE, RED, YELLOW, ORANGE AND GREEN)
     ## For non_visible_face labels, label color should be grey
-    ## Check if construction_sign is orange
 
+
+    ## Check if construction_sign is orange
     status, description = "" , ""
+    if annotation_bgcolor == "orange" and annotation_label != "constuction_sign":
+        status = "WARN"
+        description = "Construction signal is usually orange, but in this case it's not!"
     return status, description
 
 
