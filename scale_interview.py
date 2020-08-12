@@ -79,19 +79,21 @@ def check_background_color(task_id, annotation_uuid, task_image, annotation_widt
             dominant_color_label = color
     print(dominant_color_label)
 
-    ## Check if annotation_bgcolor is equal to dominant color label (for color BLUE, RED, YELLOW, ORANGE AND GREEN)
-    ## For non_visible_face labels, label color should be grey
-
-
-    ## Check if construction_sign is orange
     status, description = "" , ""
-    if annotation_bgcolor == "orange" and annotation_label != "constuction_sign":
+    ## Check if annotation_bgcolor is equal to dominant color label (for color BLUE, RED, YELLOW, ORANGE AND GREEN)
+    if dominant_color_label != annotation_label and annotation_label in ['blue', 'red', 'yellow', 'orange','green']:
+        status = "WARN"
+        description = "Background color mismatch"
+    ## For non_visible_face labels, label color should be grey
+    ## Check if construction_sign is orange
+    elif annotation_bgcolor == "orange" and annotation_label != "constuction_sign":
         status = "WARN"
         description = "Construction signal is usually orange, but in this case it's not!"
     return status, description
 
+    ## Check if traffic lights have their background color as other (usually dominant color is black?)
 
-def box_inside_box(): # Overlapping box check
+def double_box(): # What if the tasker used two boxes to represent one object? Use IoU metric
     pass
 
 def check_bottom(): # Check for traffic signs - they shoud be located on top and on left/right (Assuming all pictures are taken from cars)
